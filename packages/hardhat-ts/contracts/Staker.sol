@@ -6,6 +6,8 @@ import './ExampleExternalContract.sol';
 
 error ZeroAddressSender();
 error InsufficientStakeAmount(uint256 amount);
+error AlreadyExecuted();
+error DeadlineNotReached(uint256 deadline);
 
 contract Staker {
   event Stake(address indexed staker, uint256 amount);
@@ -13,13 +15,35 @@ contract Staker {
   ExampleExternalContract public exampleExternalContract;
 
   /// @notice - handles stakers total staked balances
-  mapping(address => uint256) balances;
-  
+  mapping(address => uint256) public balances;
+
   /// @notice - handles total staked balance
-  uint256 totalStaked = 0;
+  uint256 public totalStaked = 0;
+  /// @notice - staking lock period
+  uint256 public deadline = block.timestamp + 1 minutes;
+  /// @notice - treshold for staking funds
+  uint256 public constant threshold = 1 ether;
+  /// @notice - execution state
+  bool executed = false;
 
   constructor(address exampleExternalContractAddress) {
     exampleExternalContract = ExampleExternalContract(exampleExternalContractAddress);
+  }
+
+  /// @notice - allow call function only once
+  modifier onlyOnce() {
+    if (executed == true) {
+      revert AlreadyExecuted();
+    }
+    _;
+  }
+
+  /// @notice - do not allow call untill deadline
+  modifier untillDeadline() {
+    if (block.timestamp < deadline) {
+      revert DeadlineNotReached(deadline);
+    }
+    _;
   }
 
   // TODO: Collect funds in a payable `stake()` function and track individual `balances` with a mapping:
@@ -51,6 +75,7 @@ contract Staker {
 
   // TODO: After some `deadline` allow anyone to call an `execute()` function
   //  It should call `exampleExternalContract.complete{value: address(this).balance}()` to send all the value
+  function execute() external onlyOnce untillDeadline {}
 
   // TODO: if the `threshold` was not met, allow everyone to call a `withdraw()` function
 
